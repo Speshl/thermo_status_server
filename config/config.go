@@ -11,7 +11,7 @@ type Config struct {
 }
 
 func NewConfig() *Config {
-	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/\\%s",
+	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
 		os.Getenv("TS_USER_NAME"),
 		os.Getenv("TS_USER_PASS"),
 		os.Getenv("TS_HOST"),

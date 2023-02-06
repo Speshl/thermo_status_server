@@ -16,16 +16,16 @@ type ThermoStatusStoreIface interface {
 	SelectThermoStatus(time.Time) (*models.ThermoStatus, error)
 }
 
-type ThermoStatusConnIFace interface {
+type ThermoConnIFace interface {
 	QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row
 	Exec(ctx context.Context, sql string, arguments ...interface{}) (pgconn.CommandTag, error)
 }
 
 type ThermoStatusStore struct {
-	conn ThermoStatusConnIFace
+	conn ThermoConnIFace
 }
 
-func NewThermoStatusStore(conn ThermoStatusConnIFace) *ThermoStatusStore {
+func NewThermoStatusStore(conn ThermoConnIFace) *ThermoStatusStore {
 	return &ThermoStatusStore{
 		conn: conn,
 	}
@@ -35,24 +35,25 @@ func (s *ThermoStatusStore) InsertThermoStatus(ctx context.Context, status model
 	log.Printf("Inserting Thermo Status: %+v", status)
 	queryString := `
 	INSERT INTO status (
-		event_time, source_name, enabled, inside_temp, target_temp,
-		outside_temp, diff_temp, target_diff_temp
+		event_time, source_name, heat_on, inside_temp, inside_humidity,
+		inside_heat_index,outside_temp, diff_temp
 	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 	`
 
 	_, err := s.conn.Exec(ctx, queryString,
 		status.EventTime,
-		status.SourceName,
-		status.Enabled,
+		status.ThermoName.SourceName,
+		status.HeatOn,
 		status.InsideTemp,
-		status.TargetTemp,
+		status.InsideHumidity,
+		status.InsideHeatIndex,
 		status.OutsideTemp,
 		status.DiffTemp,
-		status.TargetDiffTemp,
 	)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -61,8 +62,9 @@ func (s *ThermoStatusStore) SelectThermoStatus(ctx context.Context, sourceName s
 	model := models.ThermoStatus{}
 
 	queryString := fmt.Sprintf(`
-	SELECT event_time, source_name, enabled, inside_temp,
-		target_temp, outside_temp, diff_temp, target_diff_temp
+	SELECT 
+		event_time, source_name, heat_on, inside_temp, inside_humidity,
+		inside_heat_index, outside_temp, diff_temp
 	FROM public.status
 	WHERE source_name = '%s'
 	ORDER BY event_time DESC
@@ -72,12 +74,12 @@ func (s *ThermoStatusStore) SelectThermoStatus(ctx context.Context, sourceName s
 	err := s.conn.QueryRow(ctx, queryString).Scan(
 		&model.EventTime,
 		&model.SourceName,
-		&model.Enabled,
+		&model.HeatOn,
 		&model.InsideTemp,
-		&model.TargetTemp,
+		&model.InsideHumidity,
+		&model.InsideHeatIndex,
 		&model.OutsideTemp,
 		&model.DiffTemp,
-		&model.TargetDiffTemp,
 	)
 	if err != nil {
 		return nil, err
